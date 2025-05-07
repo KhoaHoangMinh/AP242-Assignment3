@@ -49,13 +49,13 @@ def helper(commands, cmd_list, result, lst):
 
     elif tokens[0] == cmd_list[2]:  # BEGIN
         # print("BEGIN")
-        helper(tail, cmd_list, result, lst + [[]])
+        return helper(tail, cmd_list, result, lst + [[]])
 
     elif tokens[0] == cmd_list[3]: # END
         # print("END")
         if len(lst) == 1:
             raise UnknownBlock()
-        helper(tail, cmd_list, result, lst[:-1])
+        return helper(tail, cmd_list, result, lst[:-1])
 
     elif tokens[0] == cmd_list[4]:
         # print("LOOKUP")
