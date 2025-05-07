@@ -8,7 +8,7 @@ def check_identifier(identifier):
 
 def helper(commands, cmd_list, result, lst):
     if not commands:
-        # print("symtbl: " + ", ".join([f"({var}, {var_type})" for var, var_type in lst]))
+        print("symtbl: " + ", ".join([f"({var}, {var_type})" for var, var_type in lst]))
         if len(lst) > 1:
             raise UnclosedBlock(len(lst) - 1)
         return result
@@ -57,20 +57,58 @@ def helper(commands, cmd_list, result, lst):
             raise UnknownBlock()
         return helper(tail, cmd_list, result, lst[:-1])
 
-    elif tokens[0] == cmd_list[4]:
+    elif tokens[0] == cmd_list[4]:  # LOOKUP
         # print("LOOKUP")
-        helper(tail, cmd_list, result, lst)
+        # helper(tail, cmd_list, result, lst)
+        var = tokens[1]
 
-    elif tokens[0] == cmd_list[5]:
+        level = next(
+            (len(lst) - 1 - idx for idx, scope in enumerate(reversed(lst)) if var in [item[0] for item in scope]),
+            None
+        )
+
+        if level is None:
+            raise Undeclared(head)
+
+        return helper(tail, cmd_list, result + [str(level)], lst)
+
+    elif tokens[0] == cmd_list[5]:  # PRINT
         # print("PRINT")
-        helper(tail, cmd_list, result, lst)
+        # helper(tail, cmd_list, result, lst)
+
+        # Add the formatted string to the result
+        return helper(tail, cmd_list, result + [" ".join(
+            [f"{var}//{level}" for var, level in reduce(
+            lambda acc, scope_level: [
+                                         (var, scope_level[1]) for var, _ in scope_level[0] if
+                                         var not in [v[0] for v in acc]
+                                     ] + acc,
+            zip(reversed(lst), range(len(lst) - 1, -1, -1)),  # Traverse from innermost to outermost
+            []
+        )]
+        )], lst)
 
     elif tokens[0] == cmd_list[6]:
         # print("RPRINT")
-        helper(tail, cmd_list, result, lst)
+        # helper(tail, cmd_list, result, lst)
+
+        # Format the identifiers and their levels in reverse order
+
+        # Add the formatted string to the result
+        return helper(tail, cmd_list, result + [" ".join(
+            [f"{var}//{level}" for var, level in reversed(reduce(
+            lambda acc, scope_level: [
+                                         (var, scope_level[1]) for var, _ in scope_level[0] if
+                                         var not in [v[0] for v in acc]
+                                     ] + acc,
+            zip(reversed(lst), range(len(lst) - 1, -1, -1)),  # Traverse from innermost to outermost
+            []
+        )
+            )]
+        )], lst)
 
     else:
-        raise Exception("Unknown command")
+        raise InvalidInstruction(head)
 
 
 def simulate(list_of_commands):
