@@ -2,17 +2,70 @@ from StaticError import *
 from Symbol import *
 from functools import *
 
-def check_identifier(identifier):
-    if not identifier:
-        return True
+def check_identifier(cmd):
+    tokens = cmd.split()
+    if not tokens:
+        raise InvalidInstruction(cmd)
+
+    code = tokens[0]
+    valid_codes = ["INSERT", "ASSIGN", "BEGIN", "END", "LOOKUP", "PRINT", "RPRINT"]
+
+    if code not in valid_codes:
+        raise InvalidInstruction(cmd)
+
+    if code in ["BEGIN", "END", "PRINT", "RPRINT"] and len(tokens) != 1:
+        raise InvalidInstruction(cmd)
+
+    if code == "LOOKUP" and len(tokens) != 2:
+        raise InvalidInstruction(cmd)
+
+    if code in ["INSERT", "ASSIGN"] and len(tokens) != 3:
+        raise InvalidInstruction(cmd)
+
+    # Ensure no extra spaces or invalid delimiters
+    if "  " in cmd or cmd.strip() != cmd:
+        raise InvalidInstruction(cmd)
+
+    if code == "ASSIGN":
+        identifier, value = tokens[1], tokens[2]
+
+        # Validate identifier name (must follow rules in 3.5.1)
+        if not identifier.isidentifier() or not identifier[0].islower():
+            raise InvalidInstruction(cmd)
+
+        # Validate value
+        if not (value.isdigit() or  # Number constant
+                (value.startswith("'") and value.endswith("'") and  # String constant
+                 all(c.isalnum() or c.isspace() for c in value[1:-1])) or
+                (value.isidentifier() and value[0].islower())):  # Valid identifier
+            raise InvalidInstruction(cmd)
+
+    if code == "INSERT":
+        identifier, var_type = tokens[1], tokens[2]
+
+        # Validate identifier name
+        if not identifier.isidentifier() or not identifier[0].islower():
+            raise InvalidInstruction(cmd)
+
+        # Validate type (must be either 'number' or 'string')
+        if var_type not in ["number", "string"]:
+            raise InvalidInstruction(cmd)
+
+    if code == "LOOKUP":
+        identifier = tokens[1]
+
+        # Validate identifier name
+        if not identifier.isidentifier() or not identifier[0].islower():
+            raise InvalidInstruction(cmd)
 
 def helper(commands, cmd_list, result, lst):
     if not commands:
-        print("symtbl: " + ", ".join([f"({var}, {var_type})" for var, var_type in lst]))
+        # print("symtbl: " + ", ".join([f"({var}, {var_type})" for var, var_type in lst]))
         if len(lst) > 1:
             raise UnclosedBlock(len(lst) - 1)
         return result
     head, *tail = commands
+    check_identifier(head)
     tokens = head.split()
 
     if tokens[0] == cmd_list[0]:    # INSERT
@@ -42,8 +95,12 @@ def helper(commands, cmd_list, result, lst):
             if var_type != "string":
                 raise TypeMismatch(head)
         else:
-            if next((item[1] for scope in reversed(lst) for item in scope if item[0] == value), None) is None:
+            # value is an identifier, check its existence and type
+            value_type = next((item[1] for scope in reversed(lst) for item in scope if item[0] == value), None)
+            if value_type is None:
                 raise Undeclared(head)
+            if value_type != var_type:
+                raise TypeMismatch(head)
 
         return helper(tail, cmd_list, result + ["success"], lst)
 
@@ -123,11 +180,3 @@ def simulate(list_of_commands):
     """
     cmd_list = ["INSERT", "ASSIGN", "BEGIN", "END", "LOOKUP", "PRINT", "RPRINT"]
     return helper(list_of_commands, cmd_list, [], [[]])
-    # helper(list_of_commands, cmd_list, [])
-    # try:
-    #     results = helper(list_of_commands, cmd_list, [])
-    #     return results
-    # except Redeclared as e:
-    #     # print(e)  # This will print the error message like "Redeclared: INSERT x string"
-    #     return str(e)
-    # return ["success", "success"]
